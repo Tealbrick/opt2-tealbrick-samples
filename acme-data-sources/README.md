@@ -12,7 +12,7 @@ same bytes.
 
 | Face | Where | Content |
 |---|---|---|
-| MCP server (Streamable HTTP, JSON answers) | `POST /mcp` | 15 read-only tools and the text resources below |
+| MCP server (Streamable HTTP, JSON answers) | `POST /mcp` | 15 read-only tools, the text resources below, and 3 record-only Jarvis action tools (`gmail_send_email`, `facebook_reply_to_comment`, `metaads_update_campaign_budget`; nothing is sent, `GET /jarvis/actions` lists the calls) |
 | REST shaped like the real APIs | `/stripe/v1/*`, `/slack/api/*`, `/drive/v3/files*`, `/hubspot/crm/v3/objects/*` | same data |
 | Health | `GET /healthz` | version, seed, counts, resource counts |
 

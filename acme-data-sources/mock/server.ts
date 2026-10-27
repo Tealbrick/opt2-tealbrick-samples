@@ -1,8 +1,10 @@
 // Mock data sources for the Acme LLC second-brain workspace (Tealbrick DEV). Two faces over the same synthetic data:
 //   1. REST shaped like the real APIs: /stripe/v1/*, /slack/api/*, /drive/v3/files*, /hubspot/crm/v3/objects/*
 //   2. One remote MCP server (Streamable HTTP, JSON responses) at /mcp, for Connect's "custom MCP server": 15 read-only tools
-//      plus text resources (resources/list with cursors, resources/read; see resources.ts).
-// No auth, no keys, no writes: everything is fictional and read-only. Node 24+ (type stripping): `node mock/server.ts`.
+//      plus text resources (resources/list with cursors, resources/read; see resources.ts), and 3 Jarvis action tools (C373
+//      Jarvis: send an email, reply to a comment, change an ad budget) that only RECORD the call in memory and send nothing,
+//      so a hold can be shown end to end (`GET /jarvis/actions` lists what was recorded).
+// No auth, no keys, nothing leaves the service: everything is fictional. Node 24+ (type stripping): `node mock/server.ts`.
 
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -11,7 +13,7 @@ import { describe, listTables, seed, select } from "./orders-db.ts";
 import { listResources, PAGE_SIZE, ResourceError, readResource, resourceCount, resourceCounts } from "./resources.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 
 // ───────── derived views ─────────
 function revenueSummary() {
@@ -40,7 +42,14 @@ const driveMeta = ({ body: _b, ...meta }: (typeof files)[number]) => meta;
 
 // ───────── MCP tools ─────────
 type Args = Record<string, unknown>;
-interface Tool { name: string; description: string; inputSchema: Record<string, unknown>; run(a: Args): unknown | Promise<unknown> }
+interface Tool { name: string; description: string; inputSchema: Record<string, unknown>; action?: true; run(a: Args): unknown | Promise<unknown> }
+// C373 Jarvis: action tools record what they were asked; nothing is sent. Bounded, newest last, lost on restart.
+const actions: { at: string; tool: string; args: Args }[] = [];
+const record = (tool: string) => (a: Args) => {
+  actions.push({ at: new Date().toISOString(), tool, args: a });
+  if (actions.length > 200) actions.shift();
+  return { ok: true, mock: true, recorded: actions.length, note: "Recorded only (mock). Nothing was sent." };
+};
 const S = (props: Record<string, unknown> = {}, required: string[] = []) => ({ type: "object", properties: props, required, additionalProperties: false });
 const str = (description: string) => ({ type: "string", description });
 const lim = { type: "integer", minimum: 1, maximum: 100, description: "Max rows (default 20)" };
@@ -69,6 +78,12 @@ const TOOLS: Tool[] = [
     run: (a) => take(deals.filter((d) => !a.stage || d.properties.dealstage === a.stage), a) },
   { name: "postgres_list_tables", description: "Orders database (PostgreSQL, Acme LLC): list tables and row counts.", inputSchema: S(), run: () => listTables() },
   { name: "postgres_describe_table", description: "Orders database (PostgreSQL, Acme LLC): columns of one table (products, orders, order_lines).", inputSchema: S({ table: str("Table name") }, ["table"]), run: (a) => describe(String(a.table)) },
+  { name: "gmail_send_email", action: true, description: "Mock mailbox (fictional): send an email. Records the call only; nothing is sent.",
+    inputSchema: S({ to: str("Recipient address"), subject: str("Subject"), body: str("Plain text body") }, ["to", "subject", "body"]), run: record("gmail_send_email") },
+  { name: "facebook_reply_to_comment", action: true, description: "Mock Facebook page (fictional): reply to a comment. Records the call only; nothing is posted.",
+    inputSchema: S({ comment_id: str("Comment id"), message: str("Reply text") }, ["comment_id", "message"]), run: record("facebook_reply_to_comment") },
+  { name: "metaads_update_campaign_budget", action: true, description: "Mock Meta Ads account (fictional): change a campaign's daily budget. Records the call only; nothing changes.",
+    inputSchema: S({ campaign_id: str("Campaign id"), daily_budget_cents: { type: "integer", minimum: 100, description: "New daily budget in cents" } }, ["campaign_id", "daily_budget_cents"]), run: record("metaads_update_campaign_budget") },
   { name: "postgres_select", description: "Orders database (PostgreSQL, Acme LLC): run ONE read-only SELECT (read-only transaction, max 200 rows).", inputSchema: S({ sql: str("One SELECT statement") }, ["sql"]), run: (a) => select(String(a.sql)) },
 ];
 
@@ -89,7 +104,8 @@ async function rpcInner(msg: { id?: unknown; method?: string; params?: Args }): 
       return ok({ protocolVersion: (msg.params?.protocolVersion as string) ?? "2025-06-18", capabilities: { tools: { listChanged: false }, resources: { subscribe: false, listChanged: false } }, serverInfo: { name: "acme-data-sources", version: VERSION }, instructions: "Acme LLC company data: Stripe, Slack, Google Drive, HubSpot and the orders database (PostgreSQL). Synthetic, read only. Tools query the sources live; resources are text snapshots (Drive docs, Slack transcripts per day, Stripe and HubSpot reports) for ingestion." });
     case "ping": return ok({});
     case "tools/list":
-      return ok({ tools: TOOLS.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } })) });
+      return ok({ tools: TOOLS.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema,
+        annotations: t.action ? { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true } : { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } })) });
     case "resources/list": return ok(listResources(msg.params?.cursor));
     case "resources/templates/list": return ok({ resourceTemplates: [] });
     case "resources/read": return ok(readResource(msg.params?.uri));
@@ -127,6 +143,7 @@ createServer(async (req, res) => {
       return send(res, 200, out, { "mcp-session-id": session });
     }
     if (req.method !== "GET") return send(res, 405, { error: "read only" });
+    if (p === "/jarvis/actions") return send(res, 200, { mock: true, actions });
     const base = `${u.pathname}`;
     // Stripe
     if (p === "/stripe/v1/customers") return send(res, 200, stripeList(customers, u.searchParams, base, (c) => !u.searchParams.get("email") || c.email === u.searchParams.get("email")));

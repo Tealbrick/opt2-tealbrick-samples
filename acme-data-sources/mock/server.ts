@@ -13,7 +13,7 @@ import { describe, listTables, seed, select } from "./orders-db.ts";
 import { listResources, PAGE_SIZE, ResourceError, readResource, resourceCount, resourceCounts } from "./resources.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
-const VERSION = "0.4.0";
+const VERSION = "0.4.1";
 
 // ───────── derived views ─────────
 function revenueSummary() {
@@ -43,6 +43,13 @@ const driveMeta = ({ body: _b, ...meta }: (typeof files)[number]) => meta;
 // ───────── MCP tools ─────────
 type Args = Record<string, unknown>;
 interface Tool { name: string; description: string; inputSchema: Record<string, unknown>; action?: true; run(a: Args): unknown | Promise<unknown> }
+// C373 Jarvis: fictional comments on a page post (names and text are made up).
+const COMMENTS = [
+  { id: "c_1001", post: "p_501", author: "Giulia R. (fictional)", created: "2026-10-27T06:12:00Z", text: "Buongiorno, il corso di novembre ha ancora posti liberi?" },
+  { id: "c_1002", post: "p_501", author: "Marco T. (fictional)", created: "2026-10-27T06:40:00Z", text: "Ho pagato ieri con bonifico ma non ho ricevuto la conferma. Potete controllare?" },
+  { id: "c_1003", post: "p_502", author: "Utente anonimo (fictional)", created: "2026-10-27T07:05:00Z", text: "Siete dei truffatori, vergogna!!! [offensive test comment]" },
+  { id: "c_1004", post: "p_502", author: "Sara L. (fictional)", created: "2026-10-27T07:31:00Z", text: "Grazie per la diretta di ieri, molto utile!" },
+];
 // C373 Jarvis: action tools record what they were asked; nothing is sent. Bounded, newest last, lost on restart.
 const actions: { at: string; tool: string; args: Args }[] = [];
 const record = (tool: string) => (a: Args) => {
@@ -144,6 +151,8 @@ createServer(async (req, res) => {
     }
     if (req.method !== "GET") return send(res, 405, { error: "read only" });
     if (p === "/jarvis/actions") return send(res, 200, { mock: true, actions });
+    // C373 Jarvis: fictional page comments (Italian), one offensive, for the comment-reply workflow
+    if (p === "/meta/v1/comments") return send(res, 200, { mock: true, data: COMMENTS });
     const base = `${u.pathname}`;
     // Stripe
     if (p === "/stripe/v1/customers") return send(res, 200, stripeList(customers, u.searchParams, base, (c) => !u.searchParams.get("email") || c.email === u.searchParams.get("email")));

@@ -1,0 +1,25 @@
+{
+  "name": "acme-data-sources",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Mock Acme LLC company data sources (fake Stripe, Slack, Google Drive, HubSpot, orders Postgres) as REST and one MCP server with tools and resources.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "start": "node mock/server.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "test": "node --test 'test/**/*.test.ts'",
+    "check:remote": "node client/check.ts"
+  },
+  "dependencies": {
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "24.19.2",
+    "@types/pg": "^8.23.1",
+    "typescript": "7.0.2"
+  }
+}

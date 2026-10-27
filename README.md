@@ -37,6 +37,7 @@ pnpm test && pnpm conformance
 | `sample-caller/` | miniapp `sample-caller`: `caller_send` echoes its hook context and writes a note in `sample-gate` (companion call); `caller_dm` is an outward first-contact op |
 | `sample-pay/` | QA fixture, dev channel only, never in the default catalog: `pay_test` is a money op (always held, never adoptable) that records a pretend payment; no money moves |
 | `sample-mismatch/` | QA fixture, dev channel only, never in the default catalog: deliberately serves a manifest different from its release record (bridge refuses it, `manifest_mismatch`) |
+| `acme-data-sources/` | NOT a miniapp, not in CI `paths`: the mock company data service for the DEV "second brain" demo (fictional Acme LLC: fake Stripe, Slack, Drive, HubSpot, orders Postgres) as REST and one MCP server with 15 read-only tools and text resources. Own `README.md` |
 | `tealbrick-ci.json` | One `miniapp` config with the four app folders in `paths` and four images |
 
 Each app is a full project of its own (package.json, pnpm-lock.yaml with tarball integrity, Dockerfile, manifest `tealbrick.manifest.json`, `src`, migrations, skills, tests, `conformance.start.ts`), scaffolded with `create-tealbrick-miniapp` 0.1.3 and kept on the conventions of 0.1.8 (UNVERIFIED: no file in this repo records the scaffolder version). Product ids appear only as manifest data.

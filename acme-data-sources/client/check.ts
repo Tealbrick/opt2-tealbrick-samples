@@ -16,7 +16,7 @@ const init = await rpc<{ capabilities: Record<string, unknown>; serverInfo: { ve
 check(!!init.result?.capabilities.resources && !!init.result?.capabilities.tools, `initialize: version ${init.result?.serverInfo.version}, capabilities tools + resources`);
 
 const tools = await rpc<{ tools: { name: string }[] }>("tools/list");
-check(tools.result?.tools.length === 18, `tools/list: ${tools.result?.tools.length} tools (expect 15 read + 3 record-only actions)`);
+check(tools.result?.tools.length === 19, `tools/list: ${tools.result?.tools.length} tools (expect 15 read + 4 record-only actions)`);
 
 const resources: Res[] = [];
 let cursor: string | undefined;

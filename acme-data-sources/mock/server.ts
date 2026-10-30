@@ -13,7 +13,7 @@ import { describe, listTables, seed, select } from "./orders-db.ts";
 import { listResources, PAGE_SIZE, ResourceError, readResource, resourceCount, resourceCounts } from "./resources.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
-const VERSION = "0.4.1";
+const VERSION = "0.4.2";
 
 // ───────── derived views ─────────
 function revenueSummary() {
@@ -87,6 +87,8 @@ const TOOLS: Tool[] = [
   { name: "postgres_describe_table", description: "Orders database (PostgreSQL, Acme LLC): columns of one table (products, orders, order_lines).", inputSchema: S({ table: str("Table name") }, ["table"]), run: (a) => describe(String(a.table)) },
   { name: "gmail_send_email", action: true, description: "Mock mailbox (fictional): send an email. Records the call only; nothing is sent.",
     inputSchema: S({ to: str("Recipient address"), subject: str("Subject"), body: str("Plain text body") }, ["to", "subject", "body"]), run: record("gmail_send_email") },
+  { name: "gmail_create_draft", action: true, description: "Mock mailbox (fictional): save a draft. Records the call only; nothing is sent or stored in a mailbox.",
+    inputSchema: S({ to: str("Recipient address"), subject: str("Subject"), body: str("Plain text body") }, ["to", "subject", "body"]), run: record("gmail_create_draft") },
   { name: "facebook_reply_to_comment", action: true, description: "Mock Facebook page (fictional): reply to a comment. Records the call only; nothing is posted.",
     inputSchema: S({ comment_id: str("Comment id"), message: str("Reply text") }, ["comment_id", "message"]), run: record("facebook_reply_to_comment") },
   { name: "metaads_update_campaign_budget", action: true, description: "Mock Meta Ads account (fictional): change a campaign's daily budget. Records the call only; nothing changes.",

@@ -13,7 +13,7 @@ import { describe, listTables, seed, select } from "./orders-db.ts";
 import { listResources, PAGE_SIZE, ResourceError, readResource, resourceCount, resourceCounts } from "./resources.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
-const VERSION = "0.4.2";
+const VERSION = "0.4.3";
 
 // ───────── derived views ─────────
 function revenueSummary() {
@@ -52,9 +52,12 @@ const COMMENTS = [
 ];
 // C373 Jarvis: action tools record what they were asked; nothing is sent. Bounded, newest last, lost on restart.
 const actions: { at: string; tool: string; args: Args }[] = [];
-const record = (tool: string) => (a: Args) => {
+const record = (tool: string) => async (a: Args) => {
   actions.push({ at: new Date().toISOString(), tool, args: a });
   if (actions.length > 200) actions.shift();
+  // QA of a client retry: record first, then answer late, so a client timeout retries a call that already happened
+  const delay = Math.min(Math.max(Number(a.delay_ms) || 0, 0), 8000);
+  if (delay > 0) await new Promise((r) => setTimeout(r, delay));
   return { ok: true, mock: true, recorded: actions.length, note: "Recorded only (mock). Nothing was sent." };
 };
 const S = (props: Record<string, unknown> = {}, required: string[] = []) => ({ type: "object", properties: props, required, additionalProperties: false });
@@ -88,7 +91,7 @@ const TOOLS: Tool[] = [
   { name: "gmail_send_email", action: true, description: "Mock mailbox (fictional): send an email. Records the call only; nothing is sent.",
     inputSchema: S({ to: str("Recipient address"), subject: str("Subject"), body: str("Plain text body") }, ["to", "subject", "body"]), run: record("gmail_send_email") },
   { name: "gmail_create_draft", action: true, description: "Mock mailbox (fictional): save a draft. Records the call only; nothing is sent or stored in a mailbox.",
-    inputSchema: S({ to: str("Recipient address"), subject: str("Subject"), body: str("Plain text body") }, ["to", "subject", "body"]), run: record("gmail_create_draft") },
+    inputSchema: S({ to: str("Recipient address"), subject: str("Subject"), body: str("Plain text body"), delay_ms: { type: "integer", minimum: 0, maximum: 8000, description: "Answer this much later (QA of retries)" } }, ["to", "subject", "body"]), run: record("gmail_create_draft") },
   { name: "facebook_reply_to_comment", action: true, description: "Mock Facebook page (fictional): reply to a comment. Records the call only; nothing is posted.",
     inputSchema: S({ comment_id: str("Comment id"), message: str("Reply text") }, ["comment_id", "message"]), run: record("facebook_reply_to_comment") },
   { name: "metaads_update_campaign_budget", action: true, description: "Mock Meta Ads account (fictional): change a campaign's daily budget. Records the call only; nothing changes.",

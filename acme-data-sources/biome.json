@@ -1,0 +1,7 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "files": { "includes": ["mock/**/*.ts", "test/**/*.ts", "client/**/*.ts", "!**/node_modules"] },
+  "formatter": { "enabled": false },
+  "linter": { "enabled": true, "rules": { "preset": "recommended", "suspicious": { "noExplicitAny": "error", "noTemplateCurlyInString": "off" } } },
+  "overrides": [{ "includes": ["test/**"], "linter": { "rules": { "suspicious": { "noExplicitAny": "off" } } } }]
+}
